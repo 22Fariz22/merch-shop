@@ -17,6 +17,8 @@ type Config struct {
 	Postgres   PostgresConfig
 	Logger     Logger
 	Redis      RedisConfig
+	Cookie     Cookie
+	Session    Session
 }
 
 // API config struct
@@ -30,6 +32,7 @@ type ServerConfig struct {
 	BaseUrl           string
 	Port              string
 	Mode              string
+	JwtSecretKey      string
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	CtxDefaultTimeout time.Duration
@@ -77,6 +80,21 @@ type RedisConfig struct {
 	PoolSize            int
 	PoolTimeout         time.Duration
 	UserProfileCasheTTL time.Duration
+}
+
+// Cookie config
+type Cookie struct {
+	Name     string
+	MaxAge   int
+	Secure   bool
+	HTTPOnly bool
+}
+
+// Session config
+type Session struct {
+	Prefix string
+	Name   string
+	Expire int
 }
 
 // LoadConfig reads environment variables into a Config struct
@@ -135,6 +153,17 @@ func LoadConfig() (*Config, error) {
 			PoolSize:            getEnvAsInt("REDIS_POOL_SIZE", 500),
 			PoolTimeout:         getEnvAsDuration("REDIS_POOL_TIMEOUT", 30*time.Second),
 			UserProfileCasheTTL: getEnvAsDuration("REDIS_USER_PROFILE_CACHE_TTL", 6*time.Hour),
+		},
+		Cookie: Cookie{
+			Name:     getEnv("COOKIE_NAME", "jwt-token"),
+			MaxAge:   getEnvAsInt("COOKIE_MAX_AGE", 86400), // 1 день по умолчанию
+			Secure:   getEnvAsBool("COOKIE_SECURE", false),
+			HTTPOnly: getEnvAsBool("COOKIE_HTTP_ONLY", true),
+		},
+		Session: Session{
+			Prefix: getEnv("SESSION_PREFIX", "api-session"),
+			Name:   getEnv("SESSION_NAME", "session-id"),
+			Expire: getEnvAsInt("SESSION_EXPIRE", 3600), // 1 час по умолчанию
 		},
 	}, nil
 }
