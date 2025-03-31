@@ -8,8 +8,5 @@ import (
 
 // Map auth routes
 func MapAuthRoutes(authGroup *echo.Group, h auth.Handlers, mw *middleware.MiddlewareManager) {
-	authGroup.POST("/register", h.Register())
-	authGroup.POST("/login", h.Login())
-	authGroup.POST("/logout", h.Logout())
-	authGroup.Use(mw.AuthSessionMiddleware)
+	authGroup.POST("", h.Login())
 }

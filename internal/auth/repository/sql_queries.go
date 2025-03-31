@@ -5,18 +5,19 @@ const (
 						VALUES ($1, $2, now()) 
 						RETURNING *`
 
+	createWalletQuery = `
+        INSERT INTO wallets (user_id, balance, updated_at)
+        VALUES ($1, $2,  NOW())
+        RETURNING  user_id, balance, updated_at
+    `
 
 	deleteUserQuery = `DELETE FROM users WHERE user_id = $1`
 
-	getUserQuery = `SELECT user_id, first_name, last_name, email, role, about, avatar, phone_number, 
-       				 address, city, gender, postcode, birthday, created_at, updated_at, login_date  
+	getUserQuery = `SELECT user_id, username 
 					 FROM users 
 					 WHERE user_id = $1`
 
-	getTotal = `SELECT COUNT(user_id) FROM users`
-	
-
-	findUserByUsername = `SELECT user_id, username, created_at, password
+	findUserByUsername = `SELECT user_id, username,password, created_at
 				 		FROM users 
 				 		WHERE username = $1`
 )

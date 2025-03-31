@@ -24,11 +24,6 @@ func (u *sessionUC) CreateSession(ctx context.Context, session *models.Session, 
 	return u.sessionRepo.CreateSession(ctx, session, expire)
 }
 
-// Delete session by id
-func (u *sessionUC) DeleteByID(ctx context.Context, sessionID string) error {
-	return u.sessionRepo.DeleteByID(ctx, sessionID)
-}
-
 // get session by id
 func (u *sessionUC) GetSessionByID(ctx context.Context, sessionID string) (*models.Session, error) {
 	return u.sessionRepo.GetSessionByID(ctx, sessionID)

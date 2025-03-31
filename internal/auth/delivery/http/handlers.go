@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	"github.com/22Fariz22/merch-shop/config"
 	"github.com/22Fariz22/merch-shop/internal/auth"
@@ -29,59 +28,37 @@ func NewAuthHandlers(cfg *config.Config, authUC auth.UseCase, sessUC session.UCS
 	return &authHandlers{cfg: cfg, authUC: authUC, sessUC: sessUC, logger: log}
 }
 
-func (h *authHandlers) Register() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		ctx := utils.GetRequestCtx(c)
-
-		user := &models.User{}
-		if err := utils.ReadRequest(c, user); err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		createdUser, err := h.authUC.Register(ctx, user)
-		if err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		sess, err := h.sessUC.CreateSession(ctx, &models.Session{
-			UserID: createdUser.User.UserID,
-		}, h.cfg.Session.Expire)
-		if err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		c.SetCookie(utils.CreateSessionCookie(h.cfg, sess))
-
-		return c.JSON(http.StatusCreated, createdUser)
-	}
-}
-
+// Если есть логин и пароль идем проверять в бд, если такой есть --выдаем токен,
+// если нету --регимся и выдаем токен
 func (h *authHandlers) Login() echo.HandlerFunc {
 	type Login struct {
-		Username string `json:"username" db:"username" validate:"omitempty,lte=60,username"`
+		Username string `json:"username" db:"username" validate:"required,lte=60"`
 		Password string `json:"password,omitempty" db:"password" validate:"required,gte=6"`
 	}
 	return func(c echo.Context) error {
+		h.logger.Debug("Here handler Login()")
+
 		ctx := utils.GetRequestCtx(c)
 
 		login := &Login{}
 		if err := utils.ReadRequest(c, login); err != nil {
+			h.logger.Debug("Here handler Login() ReadRequest:", err)
 			utils.LogResponseError(c, h.logger, err)
 			return c.JSON(httpErrors.ErrorResponse(err))
 		}
 
+		//идем проверять юзера и получаем токен
 		userWithToken, err := h.authUC.Login(ctx, &models.User{
 			Username: login.Username,
 			Password: login.Password,
 		})
 		if err != nil {
+			h.logger.Debug("Here handler Login() h.authUC.Login err:", err)
 			utils.LogResponseError(c, h.logger, err)
 			return c.JSON(httpErrors.ErrorResponse(err))
 		}
 
+		//кэшируем userID и срок жизни в редисе
 		sess, err := h.sessUC.CreateSession(ctx, &models.Session{
 			UserID: userWithToken.User.UserID,
 		}, h.cfg.Session.Expire)
@@ -93,31 +70,6 @@ func (h *authHandlers) Login() echo.HandlerFunc {
 		c.SetCookie(utils.CreateSessionCookie(h.cfg, sess))
 
 		return c.JSON(http.StatusOK, userWithToken)
-	}
-}
-
-func (h *authHandlers) Logout() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		ctx := utils.GetRequestCtx(c)
-
-		cookie, err := c.Cookie("session-id")
-		if err != nil {
-			if errors.Is(err, http.ErrNoCookie) {
-				utils.LogResponseError(c, h.logger, err)
-				return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(err))
-			}
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(http.StatusInternalServerError, httpErrors.NewInternalServerError(err))
-		}
-
-		if err := h.sessUC.DeleteByID(ctx, cookie.Value); err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		utils.DeleteSessionCookie(c, h.cfg.Session.Name)
-
-		return c.NoContent(http.StatusOK)
 	}
 }
 

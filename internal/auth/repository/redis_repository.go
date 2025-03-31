@@ -7,6 +7,7 @@ import (
 
 	"github.com/22Fariz22/merch-shop/internal/auth"
 	"github.com/22Fariz22/merch-shop/internal/models"
+	"github.com/22Fariz22/merch-shop/pkg/logger"
 
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
@@ -15,15 +16,17 @@ import (
 // Auth redis repository
 type authRedisRepo struct {
 	redisClient *redis.Client
+	logger      logger.Logger
 }
 
 // Auth redis repository constructor
-func NewAuthRedisRepo(redisClient *redis.Client) auth.RedisRepository {
-	return &authRedisRepo{redisClient: redisClient}
+func NewAuthRedisRepo(redisClient *redis.Client, log logger.Logger) auth.RedisRepository {
+	return &authRedisRepo{redisClient: redisClient, logger: log}
 }
 
 // Get user by id
 func (a *authRedisRepo) GetByIDCtx(ctx context.Context, key string) (*models.User, error) {
+	a.logger.Debug("here repoRedis  GetByIDCtx")
 
 	userBytes, err := a.redisClient.Get(ctx, key).Bytes()
 	if err != nil {
@@ -38,6 +41,8 @@ func (a *authRedisRepo) GetByIDCtx(ctx context.Context, key string) (*models.Use
 
 // Cache user with duration in seconds
 func (a *authRedisRepo) SetUserCtx(ctx context.Context, key string, seconds int, user *models.User) error {
+	a.logger.Debug("here repoRedis  SetUserCtx")
+
 	userBytes, err := json.Marshal(user)
 	if err != nil {
 		return errors.Wrap(err, "authRedisRepo.SetUserCtx.json.Unmarshal")
@@ -50,6 +55,8 @@ func (a *authRedisRepo) SetUserCtx(ctx context.Context, key string, seconds int,
 
 // Delete user by key
 func (a *authRedisRepo) DeleteUserCtx(ctx context.Context, key string) error {
+	a.logger.Debug("here repoRedis  DeleteUserCtx")
+
 	if err := a.redisClient.Del(ctx, key).Err(); err != nil {
 		return errors.Wrap(err, "authRedisRepo.DeleteUserCtx.redisClient.Del")
 	}

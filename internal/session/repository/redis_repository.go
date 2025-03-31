@@ -9,6 +9,7 @@ import (
 	"github.com/22Fariz22/merch-shop/config"
 	"github.com/22Fariz22/merch-shop/internal/models"
 	"github.com/22Fariz22/merch-shop/internal/session"
+	"github.com/22Fariz22/merch-shop/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
@@ -23,15 +24,17 @@ type sessionRepo struct {
 	redisClient *redis.Client
 	basePrefix  string
 	cfg         *config.Config
+	logger      logger.Logger
 }
 
 // Session repository constructor
-func NewSessionRepository(redisClient *redis.Client, cfg *config.Config) session.SessRepository {
-	return &sessionRepo{redisClient: redisClient, basePrefix: basePrefix, cfg: cfg}
+func NewSessionRepository(redisClient *redis.Client, cfg *config.Config, log logger.Logger) session.SessRepository {
+	return &sessionRepo{redisClient: redisClient, basePrefix: basePrefix, cfg: cfg, logger: log}
 }
 
 // Create session in redis
 func (s *sessionRepo) CreateSession(ctx context.Context, sess *models.Session, expire int) (string, error) {
+	s.logger.Debug("here session redisRepo CreateSession")
 	sess.SessionID = uuid.New().String()
 	sessionKey := s.createKey(sess.SessionID)
 
@@ -57,14 +60,6 @@ func (s *sessionRepo) GetSessionByID(ctx context.Context, sessionID string) (*mo
 		return nil, errors.Wrap(err, "sessionRepo.GetSessionByID.json.Unmarshal")
 	}
 	return sess, nil
-}
-
-// Delete session by id
-func (s *sessionRepo) DeleteByID(ctx context.Context, sessionID string) error {
-	if err := s.redisClient.Del(ctx, sessionID).Err(); err != nil {
-		return errors.Wrap(err, "sessionRepo.DeleteByID")
-	}
-	return nil
 }
 
 func (s *sessionRepo) createKey(sessionID string) string {

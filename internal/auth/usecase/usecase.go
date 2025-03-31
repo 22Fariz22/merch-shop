@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/22Fariz22/merch-shop/config"
+	"github.com/22Fariz22/merch-shop/internal/auth"
 	"github.com/22Fariz22/merch-shop/internal/models"
-		"github.com/22Fariz22/merch-shop/internal/auth"
 
 	"github.com/22Fariz22/merch-shop/pkg/httpErrors"
 	"github.com/22Fariz22/merch-shop/pkg/logger"
@@ -50,6 +50,13 @@ func (u *authUC) Register(ctx context.Context, user *models.User) (*models.UserW
 	if err != nil {
 		return nil, err
 	}
+
+	// Кешируем пользователя
+	err = u.redisRepo.SetUserCtx(ctx, createdUser.UserID.String(), 3600, createdUser)
+	if err != nil {
+		u.logger.Errorf("Failed to cache user: %v", err)
+	}
+
 	createdUser.SanitizePassword()
 
 	token, err := utils.GenerateJWTToken(createdUser, u.cfg)
@@ -61,20 +68,6 @@ func (u *authUC) Register(ctx context.Context, user *models.User) (*models.UserW
 		User:  createdUser,
 		Token: token,
 	}, nil
-}
-
-// Delete new user
-func (u *authUC) Delete(ctx context.Context, userID uuid.UUID) error {
-
-	if err := u.authRepo.Delete(ctx, userID); err != nil {
-		return err
-	}
-
-	if err := u.redisRepo.DeleteUserCtx(ctx, u.GenerateUserKey(userID.String())); err != nil {
-		u.logger.Errorf("AuthUC.Delete.DeleteUserCtx: %s", err)
-	}
-
-	return nil
 }
 
 // Get user by id
@@ -103,19 +96,37 @@ func (u *authUC) GetByID(ctx context.Context, userID uuid.UUID) (*models.User, e
 
 // Login user, returns user model with jwt token
 func (u *authUC) Login(ctx context.Context, user *models.User) (*models.UserWithToken, error) {
+	u.logger.Debug("Here UC Login()")
+
 	foundUser, err := u.authRepo.FindByUsername(ctx, user)
 	if err != nil {
-		return nil, err
-	}
+		u.logger.Debug("Here UC Login() FindByUsername err:", err)
+		//если не нашли такого юзера, то регистрируем
+		//TODO:нужно сравнить ошибку чтобы понимать ошибка БД или юзер не найден
+		if err = user.PrepareCreate(); err != nil {
+			return nil, httpErrors.NewBadRequestError(errors.Wrap(err, "authUC.Register.PrepareCreate"))
+		}
 
-	if err = foundUser.ComparePasswords(user.Password); err != nil {
-		return nil, httpErrors.NewUnauthorizedError(errors.Wrap(err, "authUC.GetUsers.ComparePasswords"))
+		foundUser, err = u.authRepo.Register(ctx, user)
+		if err != nil {
+			u.logger.Debug("Here UC Login() Register err:", err)
+			return nil, err
+		}
+	} else {
+		//если нашли такого юзера, то проверяем пароль
+		if err = foundUser.ComparePasswords(user.Password); err != nil {
+			u.logger.Debug("Here UC Login() ComparePasswords err:", err)
+			return nil, httpErrors.NewUnauthorizedError(errors.Wrap(err, "authUC.GetUsers.ComparePasswords"))
+		}
+		//TODO: удаляем его текущую сессию в редисе?
 	}
 
 	foundUser.SanitizePassword()
 
+	//генерируем токен
 	token, err := utils.GenerateJWTToken(foundUser, u.cfg)
 	if err != nil {
+		u.logger.Debug("Here UC Login() GenerateJWTToken err:", err)
 		return nil, httpErrors.NewInternalServerError(errors.Wrap(err, "authUC.GetUsers.GenerateJWTToken"))
 	}
 
