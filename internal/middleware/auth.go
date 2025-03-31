@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/22Fariz22/merch-shop/config"
 	"github.com/22Fariz22/merch-shop/internal/auth"
@@ -12,60 +13,46 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 )
 
-// Auth sessions middleware using redis
-func (mw *MiddlewareManager) AuthSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		cookie, err := c.Cookie(mw.cfg.Session.Name)
-		if err != nil {
-			mw.logger.Errorf("AuthSessionMiddleware RequestID: %s, Error: %s",
-				utils.GetRequestID(c),
-				err.Error(),
-			)
-			if err == http.ErrNoCookie {
-				return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(err))
+// JWT way of auth using cookie or Authorization header
+func (mw *MiddlewareManager) AuthJWTMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			bearerHeader := c.Request().Header.Get("Authorization")
+
+			mw.logger.Infof("auth middleware bearerHeader %s", bearerHeader)
+
+			if bearerHeader != "" {
+				headerParts := strings.Split(bearerHeader, " ")
+				if len(headerParts) != 2 {
+					mw.logger.Error("auth middleware", zap.String("headerParts", "len(headerParts) != 2"))
+					return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
+				}
+
+				tokenString := headerParts[1]
+
+				if err := mw.validateJWTToken(tokenString, mw.authUC, c, mw.cfg); err != nil {
+					mw.logger.Error("middleware validateJWTToken", zap.String("headerJWT", err.Error()))
+					return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
+				}
+
+				return next(c)
 			}
-			return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
+
+			cookie, err := c.Cookie("jwt-token")
+			if err != nil {
+				mw.logger.Errorf("c.Cookie", err.Error())
+				return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
+			}
+
+			if err = mw.validateJWTToken(cookie.Value, mw.authUC, c, mw.cfg); err != nil {
+				mw.logger.Errorf("validateJWTToken", err.Error())
+				return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
+			}
+			return next(c)
 		}
-
-		sid := cookie.Value
-
-		sess, err := mw.sessUC.GetSessionByID(c.Request().Context(), cookie.Value)
-		if err != nil {
-			mw.logger.Errorf("GetSessionByID RequestID: %s, CookieValue: %s, Error: %s",
-				utils.GetRequestID(c),
-				cookie.Value,
-				err.Error(),
-			)
-			return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
-		}
-
-		user, err := mw.authUC.GetByID(c.Request().Context(), sess.UserID)
-		if err != nil {
-			mw.logger.Errorf("GetByID RequestID: %s, Error: %s",
-				utils.GetRequestID(c),
-				err.Error(),
-			)
-			return c.JSON(http.StatusUnauthorized, httpErrors.NewUnauthorizedError(httpErrors.Unauthorized))
-		}
-
-		c.Set("sid", sid)
-		c.Set("uid", sess.SessionID)
-		c.Set("user", user)
-
-		ctx := context.WithValue(c.Request().Context(), utils.UserCtxKey{}, user)
-		c.SetRequest(c.Request().WithContext(ctx))
-
-		mw.logger.Info(
-			"SessionMiddleware, RequestID: %s,  IP: %s, UserID: %s, CookieSessionID: %s",
-			utils.GetRequestID(c),
-			utils.GetIPAddress(c),
-			user.UserID.String(),
-			cookie.Value,
-		)
-
-		return next(c)
 	}
 }
 
@@ -100,6 +87,7 @@ func (mw *MiddlewareManager) validateJWTToken(tokenString string, authUC auth.Us
 			return err
 		}
 
+		fmt.Println("userUUID in validateJWTToken: ", userUUID)
 		u, err := authUC.GetByID(c.Request().Context(), userUUID)
 		if err != nil {
 			return err
