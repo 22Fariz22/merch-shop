@@ -33,6 +33,7 @@ type ServerConfig struct {
 	Port              string
 	Mode              string
 	JwtSecretKey      string
+	CookieName        string
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	CtxDefaultTimeout time.Duration
@@ -113,6 +114,8 @@ func LoadConfig() (*Config, error) {
 			BaseUrl:           getEnv("SERVER_BASE_URL", "localhost"),
 			Port:              getEnv("SERVER_PORT", "8080"),
 			Mode:              getEnv("MODE", "Development"),
+			JwtSecretKey:      getEnv("JWT_SECRET_KEY", "secretkey"),
+			CookieName:        getEnv("COOKIE_NAME", "jwt-token"),
 			ReadTimeout:       getEnvAsDuration("READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:      getEnvAsDuration("WRITE_TIMEOUT", 10*time.Second),
 			CtxDefaultTimeout: getEnvAsDuration("CTX_DEFAULT_TIMEOUT", 12*time.Second),
