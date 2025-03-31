@@ -2,9 +2,12 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/22Fariz22/merch-shop/config"
+	"github.com/22Fariz22/merch-shop/internal/models"
+	"github.com/22Fariz22/merch-shop/pkg/httpErrors"
 	"github.com/22Fariz22/merch-shop/pkg/logger"
 	"github.com/labstack/echo/v4"
 )
@@ -27,6 +30,7 @@ func GetIPAddress(c echo.Context) string {
 
 // Get context  with request id
 func GetRequestCtx(c echo.Context) context.Context {
+	fmt.Println("here GetRequestCtx")
 	return context.WithValue(c.Request().Context(), ReqIDCtxKey{}, GetRequestID(c))
 }
 
@@ -51,11 +55,9 @@ func LogResponseError(ctx echo.Context, logger logger.Logger, err error) {
 // Configure jwt cookie
 func CreateSessionCookie(cfg *config.Config, session string) *http.Cookie {
 	return &http.Cookie{
-		Name:  cfg.Session.Name,
-		Value: session,
-		Path:  "/",
-		// Domain: "/",
-		// Expires:    time.Now().Add(1 * time.Minute),
+		Name:       cfg.Session.Name,
+		Value:      session,
+		Path:       "/",
 		RawExpires: "",
 		MaxAge:     cfg.Session.Expire,
 		Secure:     cfg.Cookie.Secure,
@@ -72,4 +74,14 @@ func DeleteSessionCookie(c echo.Context, sessionName string) {
 		Path:   "/",
 		MaxAge: -1,
 	})
+}
+
+// Get user from context
+func GetUserFromCtx(ctx context.Context) (*models.User, error) {
+	user, ok := ctx.Value(UserCtxKey{}).(*models.User)
+	if !ok {
+		return nil, httpErrors.Unauthorized
+	}
+
+	return user, nil
 }

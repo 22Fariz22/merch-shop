@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	ErrBadRequest         = "Bad request"
+	ErrBadRequest            = "Bad request"
 	ErrUsernameAlreadyExists = "User with given username already exists"
-	ErrNoSuchUser         = "User not found"
-	ErrWrongCredentials   = "Wrong Credentials"
-	ErrNotFound           = "Not Found"
-	ErrUnauthorized       = "Unauthorized"
-	ErrForbidden          = "Forbidden"
-	ErrBadQueryParams     = "Invalid query params"
+	ErrNoSuchUser            = "User not found"
+	ErrWrongCredentials      = "Wrong Credentials"
+	ErrNotFound              = "Not Found"
+	ErrUnauthorized          = "Unauthorized"
+	ErrForbidden             = "Forbidden"
+	ErrBadQueryParams        = "Invalid query params"
 )
 
 var (
@@ -155,6 +155,8 @@ func ParseErrors(err error) RestErr {
 		return parseSqlErrors(err)
 	case strings.Contains(err.Error(), "Field validation"):
 		return parseValidatorError(err)
+	case strings.Contains(err.Error(), "insufficient balance"):
+		return parseInsufficientBalance(err)
 	case strings.Contains(err.Error(), "Unmarshal"):
 		return NewRestError(http.StatusBadRequest, BadRequest.Error(), err)
 	case strings.Contains(err.Error(), "UUID"):
@@ -179,6 +181,10 @@ func parseSqlErrors(err error) RestErr {
 	}
 
 	return NewRestError(http.StatusBadRequest, BadRequest.Error(), err)
+}
+
+func parseInsufficientBalance(err error) RestErr {
+	return NewRestError(http.StatusBadRequest, "insufficient balance", err)
 }
 
 func parseValidatorError(err error) RestErr {
