@@ -3,8 +3,6 @@ package http
 import (
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/22Fariz22/merch-shop/config"
 	"github.com/22Fariz22/merch-shop/internal/auth"
 	"github.com/22Fariz22/merch-shop/internal/models"
@@ -70,25 +68,5 @@ func (h *authHandlers) Login() echo.HandlerFunc {
 		c.SetCookie(utils.CreateSessionCookie(h.cfg, sess))
 
 		return c.JSON(http.StatusOK, userWithToken)
-	}
-}
-
-func (h *authHandlers) GetUserByID() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		ctx := utils.GetRequestCtx(c)
-
-		uID, err := uuid.Parse(c.Param("user_id"))
-		if err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		user, err := h.authUC.GetByID(ctx, uID)
-		if err != nil {
-			utils.LogResponseError(c, h.logger, err)
-			return c.JSON(httpErrors.ErrorResponse(err))
-		}
-
-		return c.JSON(http.StatusOK, user)
 	}
 }
