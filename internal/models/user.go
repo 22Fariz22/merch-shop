@@ -8,20 +8,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// // User model
-// type User struct {
-// 	UserID    uuid.UUID `json:"user_id" db:"user_id" redis:"user_id" validate:"omitempty"`
-// 	Username  string    `json:"username" db:"username" redis:"username" validate:"required,lte=30"`
-// 	Password  string    `json:"password,omitempty" db:"password" redis:"password" validate:"omitempty,required,gte=6"`
-// 	CreatedAt time.Time `json:"created_at,omitempty" db:"created_at" redis:"created_at"`
-// }
-
 // User model
 type User struct {
-	UserID    uuid.UUID `json:"user_id" gorm:"column:user_id;type:uuid;primaryKey;default:gen_random_uuid()" db:"user_id" redis:"user_id" validate:"omitempty"`
-	Username  string    `json:"username" gorm:"column:username;type:varchar(30);not null" db:"username" redis:"username" validate:"required,lte=30"`
-	Password  string    `json:"password,omitempty" gorm:"column:password;type:varchar(255);not null" db:"password" redis:"password" validate:"omitempty,required,gte=6"`
-	CreatedAt time.Time `json:"created_at,omitempty" gorm:"column:created_at;default:current_timestamp" db:"created_at" redis:"created_at"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id" redis:"user_id" validate:"omitempty"`
+	Username  string    `json:"username" db:"username" redis:"username" validate:"required,lte=30"`
+	Password  string    `json:"password,omitempty" db:"password" redis:"password" validate:"omitempty,required,gte=6"`
+	CreatedAt time.Time `json:"created_at,omitempty" db:"created_at" redis:"created_at"`
 }
 
 // Find user
