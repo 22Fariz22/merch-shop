@@ -56,7 +56,7 @@ func (s *Server) MapHandlers(e *echo.Echo) error {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	v1 := e.Group("/api")
+	v1 := e.Group(s.cfg.API.APIVersion)
 
 	health := v1.Group("/health")
 	authGroup := v1.Group("/auth")
