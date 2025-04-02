@@ -1,16 +1,21 @@
-# Dockerfile для миграций
-FROM golang:1.23-alpine
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# Установка goose и postgresql-client (для psql)
-RUN apk add --no-cache bash postgresql-client
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 
-# Копируем миграции и скрипт ожидания
-COPY migrations /app/migrations
-COPY wait-for-postgres.sh /app/
+COPY migrations ./migrations
+COPY wait-for-postgres.sh .
 
-# Указываем точку входа с ожиданием
+FROM alpine:3.19
+
+WORKDIR /app
+
+RUN apk add --no-cache bash postgresql-client
+
+COPY --from=builder /go/bin/goose /usr/local/bin/goose
+COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/wait-for-postgres.sh /app/
+
 ENTRYPOINT ["/app/wait-for-postgres.sh"]
 CMD ["goose", "-dir", "/app/migrations", "up"]

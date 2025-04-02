@@ -1,26 +1,22 @@
-FROM golang:1.23-alpine as builder
-
-ENV config=docker
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-COPY ./ /app
-
+COPY go.mod go.sum ./
 RUN go mod download
 
-FROM golang:1.23-alpine as runner
+COPY . .
 
-COPY --from=builder ./app ./app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s -w' -o main cmd/api/main.go
 
-RUN go install github.com/githubnemo/CompileDaemon@latest
+FROM scratch
 
 WORKDIR /app
+
+COPY --from=builder /app/main /app/main
+
 ENV config=docker
 
 EXPOSE 8080
 
-ENTRYPOINT CompileDaemon --build="go build cmd/api/main.go" --command=./main
-
-
-
-
+CMD ["/app/main"]
